@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobScope</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>JobScope</h1>
+        <p>Анализ IT-вакансий</p>
+    </header>
+
+    <main>
+        <section class="stats">
+            <div class="card">
+                <h3>Всего вакансий</h3>
+                <p id="total-vacancies">—</p>
+            </div>
+            <div class="card">
+                <h3>Средняя зарплата</h3>
+                <p id="avg-salary">—</p>
+            </div>
+        </section>
+
+        <section class="actions">
+            <button id="parse-btn">Запустить парсинг</button>
+        </section>
+
+        <section class="vacancies">
+            <h2>Вакансии</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Компания</th>
+                        <th>Город</th>
+                        <th>Зарплата от</th>
+                        <th>Зарплата до</th>
+                    </tr>
+                </thead>
+                <tbody id="vacancies-table">
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

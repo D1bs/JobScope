@@ -2,12 +2,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from database import get_connection
 from celery.result import AsyncResult
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from celery_app import celery_app
 from tasks import parse_vacancies_task
 
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 class VacancyCreate(BaseModel):
     title: str
@@ -19,7 +22,7 @@ class VacancyCreate(BaseModel):
     
 @app.get("/")
 def root():
-    return {"message": "JobScope работает", "version": "1.0" }
+    return FileResponse("frontend/index.html")
 
 @app.get("/vacancies")
 def vacancies():
