@@ -37,7 +37,33 @@ async function runParse() {
     }, 3000)
 }
 
+async function loadSkillsChart() {
+    const response = await fetch('/skills')
+    const data = await response.json()
+
+    const labels = data.skills.map(s => s.name)
+    const counts = data.skills.map(s => s.count)
+
+    new Chart(document.getElementById('skillsChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Количество вакансий',
+                data: counts,
+                backgroundColor: '#e94560'
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+        }
+    })
+}
+
 document.getElementById('parse-btn').addEventListener('click', runParse)
 
 loadStats()
 loadVacancies()
+loadSkillsChart()
+

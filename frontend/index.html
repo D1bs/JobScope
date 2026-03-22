@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JobScope</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
@@ -22,6 +23,11 @@
                 <h3>Средняя зарплата</h3>
                 <p id="avg-salary">—</p>
             </div>
+        </section>
+
+        <section class="chart-section">
+            <h2>Топ навыков</h2>
+            <canvas id="skillsChart"></canvas>
         </section>
 
         <section class="actions">
