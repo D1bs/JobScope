@@ -16,3 +16,7 @@ venv/
 
 # Secrets
 .env
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
