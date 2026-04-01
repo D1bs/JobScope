@@ -36,6 +36,29 @@
 
         <section class="vacancies">
             <h2>Вакансии</h2>
+
+            <div class="filters">
+                <input id="searchInput" type="text" placeholder="Поиск по названию или компании" />
+                <input id="salaryInput" type="number" placeholder="Зарплата от" min="0" step="10000" />
+
+                <select id="scheduleSelect">
+                    <option value="">График — любой</option>
+                    <option value="Удалённая работа">Удалёнка</option>
+                    <option value="Полный день">Полный день</option>
+                    <option value="Гибкий график">Гибкий</option>
+                </select>
+
+                <select id="employmentSelect">
+                    <option value="">Занятость — любая</option>
+                    <option value="Полная занятость">Полная</option>
+                    <option value="Частичная занятость">Частичная</option>
+                    <option value="Проектная работа">Проектная</option>
+                </select>
+
+                <button onclick="applyFilters()">Найти</button>
+                <button onclick="resetFilters()">Сбросить</button>
+            </div>
+
             <table>
                 <thead>
                     <tr>
