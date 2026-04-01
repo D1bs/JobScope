@@ -24,9 +24,14 @@ def save_vacancies(vacancies: list):
         salary_from = salary["from"] if salary else None
         salary_to = salary["to"] if salary else None
 
+        employment = vacancy.get("employment", {}).get("name")
+        schedule = vacancy.get("schedule", {}).get("name")
+        contract_type = vacancy.get("type", {}).get("name")
+
         cursor.execute("""
-            INSERT INTO vacancies (hh_id, title, company, city, salary_from, salary_to, url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO vacancies (hh_id, title, company, city, salary_from, salary_to, url,
+                                   employment, schedule, contract_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (hh_id) DO NOTHING
         """, (
             vacancy["id"],
@@ -35,7 +40,10 @@ def save_vacancies(vacancies: list):
             vacancy["area"]["name"],
             salary_from,
             salary_to,
-            vacancy["alternate_url"]
+            vacancy["alternate_url"],
+            employment,
+            schedule,
+            contract_type
         ))
 
         if cursor.rowcount == 1:
