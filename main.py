@@ -52,24 +52,55 @@ def vacancies():
     return result
 
 
-@app.post("/vacancies")
-def create_vacancy(vacancy: VacancyCreate):
+@app.get("/vacancies")
+def get_vacancies(
+    search: str = None,
+    city: str = None,
+    schedule: str = None,
+    employment: str = None,
+    salary_min: int = None,
+):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO vacancies (title, company, city, salary_from, salary_to, url)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """, (vacancy.title, vacancy.company, vacancy.city,
-          vacancy.salary_from, vacancy.salary_to, vacancy.url))
+    sql = """
+        SELECT id, title, company, city, salary_from, salary_to,
+               url, employment, schedule, contract_type
+        FROM vacancies
+    """
 
-    new_id = cursor.fetchone()[0]
-    conn.commit()
+    conditions = []
+    params = []
+
+    if search:
+        conditions.append("(title ILIKE %s OR company ILIKE %s)")
+        params.extend([f"%{search}%", f"%{search}%"])
+
+    for column, value in {"city": city, "schedule": schedule, "employment": employment}.items():
+        if value:
+            conditions.append(f"{column} ILIKE %s")
+            params.append(f"%{value}%")
+
+    if salary_min:
+        conditions.append("salary_from >= %s")
+        params.append(salary_min)
+
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
+
+    sql += " ORDER BY id DESC LIMIT 100"
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
-    return {"id": new_id, "message": "Вакансия добавлена"}
+    keys = ["id", "title", "company", "city", "salary_from",
+            "salary_to", "url", "employment", "schedule", "contract_type"]
+
+    return [dict(zip(keys, row)) for row in rows]
+
 
 @app.get("/stats")
 def get_stats():
