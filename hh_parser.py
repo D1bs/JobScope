@@ -1,5 +1,7 @@
 import httpx
 import asyncio
+import redis
+import json
 from database import get_connection
 
 def fetch_vacancies(query: str, city_id: int):
@@ -53,6 +55,15 @@ def save_vacancies(vacancies: list):
     cursor.close()
     conn.close()
     return saved
+
+
+def notify_clients(count: int):
+    r = redis.Redis(host="localhost", port=6379, db=0)
+    r.publish("jobscope_events", json.dumps({
+        "type": "new_vacancies",
+        "count": count,
+    }))
+    r.close()
 
 
 async def fetch_vacancy_skills(client, hh_id: str) -> dict:
