@@ -5,7 +5,6 @@ async function loadStats() {
     document.getElementById('avg-salary').textContent = '$' + data.avg_salary
 }
 
-
 async function loadVacancies(filters = {}) {
     const params = new URLSearchParams(
         Object.entries(filters).filter(([, value]) => value)
@@ -15,15 +14,17 @@ async function loadVacancies(filters = {}) {
     const tbody = document.getElementById('vacancies-table')
     tbody.innerHTML = ''
     for (const vacancy of data) {
-        tbody.innerHTML += `
-            <tr>
-                <td>${vacancy.title}</td>
-                <td>${vacancy.company}</td>
-                <td>${vacancy.city}</td>
-                <td>${vacancy.salary_from ?? '—'}</td>
-                <td>${vacancy.salary_to ?? '—'}</td>
-            </tr>
-        `
+    tbody.innerHTML += `
+        <tr>
+            <td>${vacancy.title}</td>
+            <td>${vacancy.company}</td>
+            <td>${vacancy.city}</td>
+            <td>${vacancy.schedule ?? '—'}</td>
+            <td>${vacancy.employment ?? '—'}</td>
+            <td>${vacancy.salary_from ?? '—'}</td>
+            <td>${vacancy.salary_to ?? '—'}</td>
+        </tr>
+    `
     }
 }
 
@@ -41,6 +42,8 @@ async function runParse() {
     }, 3000)
 }
 
+let skillsChart = null
+
 async function loadSkillsChart() {
     const response = await fetch('/skills')
     const data = await response.json()
@@ -48,7 +51,11 @@ async function loadSkillsChart() {
     const labels = data.skills.map(s => s.name)
     const counts = data.skills.map(s => s.count)
 
-    new Chart(document.getElementById('skillsChart'), {
+    if (skillsChart) {
+        skillsChart.destroy()
+    }
+
+    skillsChart = new Chart(document.getElementById('skillsChart'), {
         type: 'bar',
         data: {
             labels: labels,
@@ -65,41 +72,12 @@ async function loadSkillsChart() {
     })
 }
 
-function createWebSocket() {
-    const ws = new WebSocket("ws://localhost:8000/ws")
-
-    ws.onopen = () => console.log("[WS] connected")
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        if (data.type === "new_vacancies") {
-            showToast(`Добавлено вакансий: ${data.count}`)
-            loadVacancies()
-            loadStats()
-        }
-    }
-
-    ws.onclose = () => {
-        console.log("[WS] disconnected, reconnecting in 3s...")
-        setTimeout(createWebSocket, 3000)
-    }
-}
-
-function showToast(message) {
-    const toast = document.createElement("div")
-    toast.textContent = message
-    toast.className = "toast"
-    document.body.appendChild(toast)
-    setTimeout(() => toast.remove(), 4000)
-}
-
-
 function getFilters() {
     return {
-        search:     document.getElementById("searchInput").value.trim(),
-        salary_min: document.getElementById("salaryInput").value,
-        schedule:   document.getElementById("scheduleSelect").value,
-        employment: document.getElementById("employmentSelect").value,
+        search:     document.getElementById('searchInput').value.trim(),
+        salary_min: document.getElementById('salaryInput').value,
+        schedule:   document.getElementById('scheduleSelect').value,
+        employment: document.getElementById('employmentSelect').value,
     }
 }
 
@@ -108,21 +86,49 @@ function applyFilters() {
 }
 
 function resetFilters() {
-    document.getElementById("searchInput").value      = ""
-    document.getElementById("salaryInput").value      = ""
-    document.getElementById("scheduleSelect").value   = ""
-    document.getElementById("employmentSelect").value = ""
+    document.getElementById('searchInput').value      = ''
+    document.getElementById('salaryInput').value      = ''
+    document.getElementById('scheduleSelect').value   = ''
+    document.getElementById('employmentSelect').value = ''
     loadVacancies()
 }
 
-document.getElementById("searchInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") applyFilters()
-})
+function createWebSocket() {
+    const ws = new WebSocket('ws://localhost:8000/ws')
 
-createWebSocket()
+    ws.onopen = () => console.log('[WS] connected')
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        if (data.type === 'new_vacancies') {
+            showToast(`Добавлено вакансий: ${data.count}`)
+            loadVacancies()
+            loadStats()
+            loadSkillsChart()
+        }
+    }
+
+    ws.onclose = () => {
+        console.log('[WS] disconnected, reconnecting in 3s...')
+        setTimeout(createWebSocket, 3000)
+    }
+}
+
+function showToast(message) {
+    const toast = document.createElement('div')
+    toast.textContent = message
+    toast.className = 'toast'
+    document.body.appendChild(toast)
+    setTimeout(() => toast.remove(), 4000)
+}
+
+document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyFilters()
+})
 
 document.getElementById('parse-btn').addEventListener('click', runParse)
 
+createWebSocket()
 loadStats()
 loadVacancies()
 loadSkillsChart()

@@ -1,17 +1,16 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from contextlib import asynccontextmanager
-from websocket_manager import manager
-import asyncio
-import redis
-import json
 from pydantic import BaseModel
 from database import get_connection
 from celery.result import AsyncResult
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-
 from celery_app import celery_app
 from tasks import parse_vacancies_task
+from websocket_manager import manager
+import asyncio
+import redis
+import json
 
 
 async def redis_listener():
@@ -19,9 +18,11 @@ async def redis_listener():
     pubsub = r.pubsub()
     pubsub.subscribe("jobscope_events")
 
-    for message in pubsub.listen():
-        if message["type"] == "message":
+    while True:
+        message = pubsub.get_message()
+        if message and message["type"] == "message":
             await manager.broadcast(message["data"].decode())
+        await asyncio.sleep(0.1)
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 
 class VacancyCreate(BaseModel):
     title: str
@@ -46,34 +48,6 @@ class VacancyCreate(BaseModel):
 @app.get("/")
 def root():
     return FileResponse("frontend/index.html")
-
-
-@app.get("/vacancies")
-def vacancies():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT id, title, company, city, salary_from, salary_to, url FROM vacancies
-    """)
-
-    rows = cursor.fetchall()
-    result = []
-    for row in rows:
-        result.append({
-            "id": row[0],
-            "title": row[1],
-            "company": row[2],
-            "city": row[3],
-            "salary_from": row[4],
-            "salary_to": row[5],
-            "url": row[6]
-        })
-
-    cursor.close()
-    conn.close()
-
-    return result
 
 
 @app.get("/vacancies")
@@ -131,17 +105,17 @@ def get_stats():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT COUNT(*), AVG(salary_from) FROM vacancies
-    """)
+    cursor.execute("SELECT COUNT(*), AVG(salary_from) FROM vacancies")
 
     row = cursor.fetchone()
     cursor.close()
     conn.close()
 
+    avg = round(float(row[1]), 2) if row[1] is not None else 0
+
     return {
         "total_vacancies": row[0],
-        "avg_salary": round(float(row[1]), 2)
+        "avg_salary": avg
     }
 
 

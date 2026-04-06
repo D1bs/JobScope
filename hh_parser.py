@@ -2,6 +2,7 @@ import httpx
 import asyncio
 import redis
 import json
+
 from database import get_connection
 
 def fetch_vacancies(query: str, city_id: int):
@@ -26,14 +27,9 @@ def save_vacancies(vacancies: list):
         salary_from = salary["from"] if salary else None
         salary_to = salary["to"] if salary else None
 
-        employment = vacancy.get("employment", {}).get("name")
-        schedule = vacancy.get("schedule", {}).get("name")
-        contract_type = vacancy.get("type", {}).get("name")
-
         cursor.execute("""
-            INSERT INTO vacancies (hh_id, title, company, city, salary_from, salary_to, url,
-                                   employment, schedule, contract_type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO vacancies (hh_id, title, company, city, salary_from, salary_to, url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (hh_id) DO NOTHING
         """, (
             vacancy["id"],
@@ -42,10 +38,7 @@ def save_vacancies(vacancies: list):
             vacancy["area"]["name"],
             salary_from,
             salary_to,
-            vacancy["alternate_url"],
-            employment,
-            schedule,
-            contract_type
+            vacancy["alternate_url"]
         ))
 
         if cursor.rowcount == 1:
@@ -57,26 +50,26 @@ def save_vacancies(vacancies: list):
     return saved
 
 
-def notify_clients(count: int):
-    r = redis.Redis(host="localhost", port=6379, db=0)
-    r.publish("jobscope_events", json.dumps({
-        "type": "new_vacancies",
-        "count": count,
-    }))
-    r.close()
-
-
 async def fetch_vacancy_skills(client, hh_id: str) -> dict:
-    response = await client.get(f"https://api.hh.ru/vacancies/{hh_id}")
-    data = response.json()
-    skills = [s["name"] for s in data.get("key_skills", [])]
-    return {"hh_id": hh_id, "skills": skills}
+    try:
+        response = await client.get(
+            f"https://api.hh.ru/vacancies/{hh_id}",
+            timeout=10.0
+        )
+        data = response.json()
+        skills = [s["name"] for s in data.get("key_skills", [])]
+        return {"hh_id": hh_id, "skills": skills}
+    except Exception:
+        return {"hh_id": hh_id, "skills": []}
 
 
 async def fetch_all_skills(hh_ids: list) -> list:
+    results = []
     async with httpx.AsyncClient() as client:
-        tasks = [fetch_vacancy_skills(client, hh_id) for hh_id in hh_ids]
-        results = await asyncio.gather(*tasks)
+        for hh_id in hh_ids:
+            result = await fetch_vacancy_skills(client, hh_id)
+            results.append(result)
+            await asyncio.sleep(0.2)
     return results
 
 
@@ -100,3 +93,12 @@ def save_skills(skills_data: list):
 def fetch_and_save_skills(hh_ids: list):
     skills_data = asyncio.run(fetch_all_skills(hh_ids))
     save_skills(skills_data)
+
+
+def notify_clients(count: int):
+    r = redis.Redis(host="localhost", port=6379, db=0)
+    r.publish("jobscope_events", json.dumps({
+        "type": "new_vacancies",
+        "count": count,
+    }))
+    r.close()
