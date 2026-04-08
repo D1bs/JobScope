@@ -3,7 +3,7 @@ import asyncio
 import redis
 import json
 
-from database import get_connection
+from src.database import get_connection
 
 def fetch_vacancies(query: str, city_id: int):
     url = "https://api.hh.ru/vacancies"

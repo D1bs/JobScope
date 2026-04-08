@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 
 
-from api.dependencies import get_db
-from schemas.vacancies import VacancyFilter
+from src.api.dependencies import get_db
+from src.schemas.vacancies import VacancyFilter
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 

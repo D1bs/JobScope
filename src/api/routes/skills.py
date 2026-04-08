@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from api.dependencies import get_db
+from src.api.dependencies import get_db
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 

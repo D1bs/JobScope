@@ -1,5 +1,5 @@
 from typing import Generator
-from database import get_connection
+from src.database import get_connection
 
 def get_db() -> Generator:
     conn = get_connection()
