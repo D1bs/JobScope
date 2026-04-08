@@ -4,6 +4,7 @@ import redis
 import json
 
 from src.database import get_connection
+from src.config import settings
 
 def fetch_vacancies(query: str, city_id: int):
     url = "https://api.hh.ru/vacancies"
@@ -96,7 +97,7 @@ def fetch_and_save_skills(hh_ids: list):
 
 
 def notify_clients(count: int):
-    r = redis.Redis(host="localhost", port=6379, db=0)
+    r = redis.from_url(settings.REDIS_URL)
     r.publish("jobscope_events", json.dumps({
         "type": "new_vacancies",
         "count": count,

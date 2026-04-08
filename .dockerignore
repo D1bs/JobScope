@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.git/
+.idea/
+celerybeat-schedule
+celerybeat-schedule-wal
+celerybeat-schedule-shm

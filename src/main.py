@@ -11,10 +11,11 @@ from src.api.routes.skills import router as skills_router
 from src.api.routes.stats import router as stats_router
 from src.api.routes.vacancies import router as vacancies_router
 from websocket_manager import manager
+from src.config import settings
 
 
 async def redis_listener():
-    r = redis.Redis(host="localhost", port=6379, db=0)
+    r = redis.from_url(settings.REDIS_URL)
     pubsub = r.pubsub()
     pubsub.subscribe("jobscope_events")
 
@@ -43,7 +44,7 @@ app.include_router(skills_router)
 
 @app.get("/")
 def root():
-    return FileResponse("../frontend/index.html")
+    return FileResponse("frontend/index.html")
 
 
 @app.websocket("/ws")

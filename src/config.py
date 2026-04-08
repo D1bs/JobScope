@@ -10,5 +10,6 @@ class Settings(BaseSettings):
     DB_PASSWORD: str
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_URL: str
 
 settings = Settings()
