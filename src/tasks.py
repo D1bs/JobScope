@@ -1,5 +1,6 @@
-from celery_app import celery_app
-from hh_parser import fetch_vacancies, save_vacancies, fetch_and_save_skills, notify_clients
+from src.celery_app import celery_app
+from src.parser.hh_parser import fetch_vacancies, save_vacancies, fetch_and_save_skills
+from src.websocket_manager import notify_clients
 
 QUERIES = ["Python", "JavaScript", "Java", "Go", "DevOps", "QA", "Data Science", "iOS", "Android", "C#"]
 CITIES = [16, 113, 2, 159]  # Беларусь, Россия, Казахстан, Санкт-Петербург

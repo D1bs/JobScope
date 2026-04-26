@@ -1,7 +1,5 @@
 import httpx
 import asyncio
-import redis
-import json
 
 from src.database import get_connection
 from src.config import settings
@@ -10,12 +8,8 @@ from src.config import settings
 def get_hh_headers() -> dict:
     return {
         "User-Agent": f"JobScope/1.0 ({settings.HH_CLIENT_ID})",
-        "Authorization": f"Bearer {get_access_token()}",
+        "Authorization": f"Bearer {settings.HH_ACCESS_TOKEN}",
     }
-
-
-def get_access_token() -> str:
-    return settings.HH_ACCESS_TOKEN
 
 
 def fetch_vacancies(query: str, city_id: int):
@@ -43,9 +37,9 @@ def save_vacancies(vacancies: list):
     saved = 0
 
     for vacancy in vacancies:
-        salary        = vacancy.get("salary") or {}
-        salary_from   = salary.get("from")
-        salary_to     = salary.get("to")
+        salary      = vacancy.get("salary") or {}
+        salary_from = salary.get("from")
+        salary_to   = salary.get("to")
 
         cursor.execute("""
             INSERT INTO vacancies (hh_id, title, company, city, salary_from, salary_to, url)
@@ -114,12 +108,3 @@ def save_skills(skills_data: list):
 def fetch_and_save_skills(hh_ids: list):
     skills_data = asyncio.run(fetch_all_skills(hh_ids))
     save_skills(skills_data)
-
-
-def notify_clients(count: int):
-    r = redis.from_url(settings.REDIS_URL)
-    r.publish("jobscope_events", json.dumps({
-        "type": "new_vacancies",
-        "count": count,
-    }))
-    r.close()

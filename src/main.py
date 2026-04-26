@@ -10,7 +10,7 @@ from src.api.routes.parse import router as parse_router
 from src.api.routes.skills import router as skills_router
 from src.api.routes.stats import router as stats_router
 from src.api.routes.vacancies import router as vacancies_router
-from websocket_manager import manager
+from src.websocket_manager import manager
 from src.config import settings
 
 

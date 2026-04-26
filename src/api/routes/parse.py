@@ -1,7 +1,7 @@
 from fastapi import APIRouter
-from tasks import parse_vacancies_task
+from src.tasks import parse_vacancies_task
 from celery.result import AsyncResult
-from celery_app import celery_app
+from src.celery_app import celery_app
 
 router = APIRouter(prefix="/parse", tags=["parse"])
 

@@ -1,4 +1,8 @@
+import redis
+import json
+
 from fastapi import WebSocket
+from src.config import settings
 
 
 class ConnectionManager:
@@ -26,3 +30,12 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def notify_clients(count: int):
+    r = redis.from_url(settings.REDIS_URL)
+    r.publish("jobscope_events", json.dumps({
+        "type": "new_vacancies",
+        "count": count,
+    }))
+    r.close()
