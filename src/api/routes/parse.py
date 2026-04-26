@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-
 from tasks import parse_vacancies_task
 from celery.result import AsyncResult
 from celery_app import celery_app

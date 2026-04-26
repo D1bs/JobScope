@@ -6,15 +6,34 @@ import json
 from src.database import get_connection
 from src.config import settings
 
+
+def get_hh_headers() -> dict:
+    return {
+        "User-Agent": f"JobScope/1.0 ({settings.HH_CLIENT_ID})",
+        "Authorization": f"Bearer {get_access_token()}",
+    }
+
+
+def get_access_token() -> str:
+    return settings.HH_ACCESS_TOKEN
+
+
 def fetch_vacancies(query: str, city_id: int):
     url = "https://api.hh.ru/vacancies"
     params = {
         "text": query,
         "area": city_id,
-        "per_page": 20
+        "per_page": 20,
+        "search_field": "name",
     }
-    response = httpx.get(url, params=params)
+
+    response = httpx.get(url, params=params, headers=get_hh_headers(), timeout=10.0)
     data = response.json()
+
+    if "items" not in data:
+        print(f"[HH ERROR] {data}")
+        return []
+
     return data["items"]
 
 
@@ -24,9 +43,9 @@ def save_vacancies(vacancies: list):
     saved = 0
 
     for vacancy in vacancies:
-        salary = vacancy.get("salary")
-        salary_from = salary["from"] if salary else None
-        salary_to = salary["to"] if salary else None
+        salary        = vacancy.get("salary") or {}
+        salary_from   = salary.get("from")
+        salary_to     = salary.get("to")
 
         cursor.execute("""
             INSERT INTO vacancies (hh_id, title, company, city, salary_from, salary_to, url)
@@ -39,7 +58,7 @@ def save_vacancies(vacancies: list):
             vacancy["area"]["name"],
             salary_from,
             salary_to,
-            vacancy["alternate_url"]
+            vacancy["alternate_url"],
         ))
 
         if cursor.rowcount == 1:
@@ -55,6 +74,7 @@ async def fetch_vacancy_skills(client, hh_id: str) -> dict:
     try:
         response = await client.get(
             f"https://api.hh.ru/vacancies/{hh_id}",
+            headers={"Authorization": f"Bearer {settings.HH_ACCESS_TOKEN}"},
             timeout=10.0
         )
         data = response.json()

@@ -4,79 +4,140 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JobScope</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header>
-        <h1>JobScope</h1>
-        <p>Анализ IT-вакансий</p>
-    </header>
-
-    <main>
-        <section class="stats">
-            <div class="card">
-                <h3>Всего вакансий</h3>
-                <p id="total-vacancies">—</p>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-mark">JS</span>
+                <span class="logo-text">JobScope</span>
             </div>
-            <div class="card">
-                <h3>Средняя зарплата</h3>
-                <p id="avg-salary">—</p>
+            <nav class="nav">
+                <a class="nav-item active" href="#">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Дашборд
+                </a>
+                <a class="nav-item" href="#vacancies-section">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    Вакансии
+                </a>
+                <a class="nav-item" href="#analytics-section">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Аналитика
+                </a>
+            </nav>
+            <button class="parse-btn" id="parse-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                Обновить данные
+            </button>
+            <div class="sidebar-footer">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">Подключение...</span>
             </div>
-        </section>
+        </aside>
 
-        <section class="chart-section">
-            <h2>Топ навыков</h2>
-            <canvas id="skillsChart"></canvas>
-        </section>
-
-        <section class="actions">
-            <button id="parse-btn">Запустить парсинг</button>
-        </section>
-
-        <section class="vacancies">
-            <h2>Вакансии</h2>
-
-            <div class="filters">
-                <input id="searchInput" type="text" placeholder="Поиск по названию или компании" />
-                <input id="salaryInput" type="number" placeholder="Зарплата от" min="0" step="10000" />
-
-                <select id="scheduleSelect">
-                    <option value="">График — любой</option>
-                    <option value="Удалённая работа">Удалёнка</option>
-                    <option value="Полный день">Полный день</option>
-                    <option value="Гибкий график">Гибкий</option>
-                </select>
-
-                <select id="employmentSelect">
-                    <option value="">Занятость — любая</option>
-                    <option value="Полная занятость">Полная</option>
-                    <option value="Частичная занятость">Частичная</option>
-                    <option value="Проектная работа">Проектная</option>
-                </select>
-
-                <button onclick="applyFilters()">Найти</button>
-                <button onclick="resetFilters()">Сбросить</button>
+        <main class="main">
+            <div class="topbar">
+                <div>
+                    <h1 class="page-title">Рынок IT-вакансий</h1>
+                </div>
+                <div class="topbar-actions">
+                    <div class="search-wrap">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input id="searchInput" type="text" placeholder="Поиск вакансий..." />
+                    </div>
+                </div>
             </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Название</th>
-                        <th>Компания</th>
-                        <th>Город</th>
-                        <th>График</th>
-                        <th>Занятость</th>
-                        <th>Зарплата от</th>
-                        <th>Зарплата до</th>
-                    </tr>
-                </thead>
-                <tbody id="vacancies-table">
-                </tbody>
-            </table>
-        </section>
-    </main>
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-label">Всего вакансий</div>
+                    <div class="metric-value" id="total-vacancies">—</div>
+                    <div class="metric-trend up">в базе</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Средняя зарплата</div>
+                    <div class="metric-value" id="avg-salary">—</div>
+                    <div class="metric-trend">от (руб)</div>
+                </div>
+                <div class="metric-card accent">
+                    <div class="metric-label">Топ навык</div>
+                    <div class="metric-value" id="top-skill">—</div>
+                    <div class="metric-trend">самый востребованный</div>
+                </div>
+            </div>
 
+            <div class="charts-row" id="analytics-section">
+                <div class="chart-card wide">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">Топ навыков</h2>
+                            <p class="chart-sub">Встречаемость в вакансиях</p>
+                        </div>
+                        <div class="chart-tabs">
+                            <button class="tab active" data-n="10">10</button>
+                            <button class="tab" data-n="15">15</button>
+                        </div>
+                    </div>
+                    <canvas id="skillsChart" height="220"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h2 class="chart-title">Зарплаты</h2>
+                            <p class="chart-sub">По диапазонам</p>
+                        </div>
+                    </div>
+                    <canvas id="salaryChart" height="220"></canvas>
+                </div>
+            </div>
+
+            <div class="table-card" id="vacancies-section">
+                <div class="table-header">
+                    <h2 class="chart-title">Вакансии</h2>
+                    <div class="filters">
+                        <select id="scheduleSelect">
+                            <option value="">Любой график</option>
+                            <option value="Удалённая работа">Удалёнка</option>
+                            <option value="Полный день">Полный день</option>
+                            <option value="Гибкий график">Гибкий</option>
+                        </select>
+                        <select id="employmentSelect">
+                            <option value="">Любая занятость</option>
+                            <option value="Полная занятость">Полная</option>
+                            <option value="Частичная занятость">Частичная</option>
+                            <option value="Проектная работа">Проектная</option>
+                        </select>
+                        <input id="salaryInput" type="number" placeholder="Зарплата от" min="0" step="1000" />
+                        <button class="filter-btn" onclick="applyFilters()">Применить</button>
+                        <button class="filter-btn ghost" onclick="resetFilters()">Сбросить</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Название</th>
+                                <th>Компания</th>
+                                <th>Город</th>
+                                <th>График</th>
+                                <th>Занятость</th>
+                                <th>Зарплата от</th>
+                                <th>Зарплата до</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vacancies-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast" id="toast" style="display:none"></div>
     <script src="/static/app.js"></script>
 </body>
 </html>
