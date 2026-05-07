@@ -2,7 +2,18 @@ from src.celery_app import celery_app
 from src.parser.hh_parser import fetch_vacancies, save_vacancies, fetch_and_save_skills
 from src.websocket_manager import notify_clients
 
-QUERIES = ["Python", "JavaScript", "Java", "Go", "DevOps", "QA", "Data Science", "iOS", "Android", "C#"]
+QUERIES = [
+    "Python",
+    "JavaScript OR TypeScript",
+    "Java",
+    "Golang OR Go",
+    "DevOps",
+    "QA OR тестировщик",
+    "Data Science OR ML",
+    "iOS OR Swift",
+    "Android OR Kotlin",
+    "C#",
+]
 CITIES = [16, 113, 2, 159]  # Беларусь, Россия, Казахстан, Санкт-Петербург
 
 @celery_app.task

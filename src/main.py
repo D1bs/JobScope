@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-import redis
+import redis.asyncio as aioredis
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,15 +15,13 @@ from src.config import settings
 
 
 async def redis_listener():
-    r = redis.from_url(settings.REDIS_URL)
+    r = aioredis.from_url(settings.REDIS_URL)
     pubsub = r.pubsub()
-    pubsub.subscribe("jobscope_events")
+    await pubsub.subscribe("jobscope_events")
 
-    while True:
-        message = pubsub.get_message()
-        if message and message["type"] == "message":
+    async for message in pubsub.listen():
+        if message["type"] == "message":
             await manager.broadcast(message["data"].decode())
-        await asyncio.sleep(0.1)
 
 
 @asynccontextmanager

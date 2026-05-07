@@ -1,22 +1,19 @@
 from fastapi import APIRouter, Depends
-
-
 from src.api.dependencies import get_db
 from src.schemas.vacancies import VacancyFilter
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
+PAGE_SIZE = 50
+
 
 @router.get("")
-def get_vacancies(
-    conn = Depends(get_db),
-    filters: VacancyFilter = Depends(),
-):
+def get_vacancies(conn=Depends(get_db), filters: VacancyFilter = Depends()):
     cursor = conn.cursor()
 
     sql = """
-        SELECT id, title, company, city, salary_from, salary_to,
-               url, employment, schedule, contract_type
+        SELECT id, title, company, city, salary_from, salary_to, currency,
+               salary_from_byn, salary_to_byn, url, employment, schedule, contract_type
         FROM vacancies
     """
 
@@ -39,14 +36,21 @@ def get_vacancies(
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
 
-    sql += " ORDER BY id DESC LIMIT 100"
+    sql += " ORDER BY id DESC LIMIT %s OFFSET %s"
+    params.extend([PAGE_SIZE + 1, filters.offset])
 
     cursor.execute(sql, params)
     rows = cursor.fetchall()
-
     cursor.close()
 
-    keys = ["id", "title", "company", "city", "salary_from",
-            "salary_to", "url", "employment", "schedule", "contract_type"]
+    keys = ["id", "title", "company", "city", "salary_from", "salary_to", "currency",
+            "salary_from_byn", "salary_to_byn", "url", "employment", "schedule", "contract_type"]
 
-    return [dict(zip(keys, row)) for row in rows]
+    vacancies = [dict(zip(keys, row)) for row in rows]
+    has_more = len(vacancies) > PAGE_SIZE
+
+    return {
+        "items": vacancies[:PAGE_SIZE],
+        "has_more": has_more,
+        "offset": filters.offset,
+    }

@@ -2,6 +2,10 @@ let skillsChart = null
 let salaryChart = null
 let allSkillsData = []
 let currentN = 10
+let currentFilters = {}
+let currentOffset = 0
+let isLoading = false
+let hasMore = true
 
 async function loadStats(filters = {}) {
     const params = new URLSearchParams(
@@ -15,27 +19,45 @@ async function loadStats(filters = {}) {
         : '—'
 }
 
-async function loadVacancies(filters = {}) {
+async function loadVacancies(filters = {}, reset = true) {
+    if (isLoading) return
+    if (!reset && !hasMore) return
+
+    isLoading = true
+
+    if (reset) {
+        currentOffset = 0
+        hasMore = true
+        currentFilters = filters
+        document.getElementById('vacancies-table').innerHTML = ''
+    }
+
     const params = new URLSearchParams(
-        Object.entries(filters).filter(([, v]) => v)
+        Object.entries(currentFilters).filter(([, v]) => v)
     )
+    params.set('offset', currentOffset)
+
     const res = await fetch(`/vacancies?${params}`)
     const data = await res.json()
-    const tbody = document.getElementById('vacancies-table')
-    tbody.innerHTML = ''
 
-    if (!data.length) {
+    hasMore = data.has_more
+    currentOffset += data.items.length
+
+    const tbody = document.getElementById('vacancies-table')
+
+    if (reset && !data.items.length) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Вакансии не найдены</td></tr>`
+        isLoading = false
         return
     }
 
-    for (const v of data) {
+    for (const v of data.items) {
         const scheduleBadge = getBadge(v.schedule)
-        const salFrom = v.salary_from
-            ? `<span class="salary">${v.salary_from.toLocaleString('ru')}</span>`
+        const salFrom = v.salary_from_byn
+            ? `<span class="salary">${v.salary_from_byn.toLocaleString('ru')} BYN</span>`
             : `<span class="salary-none">—</span>`
-        const salTo = v.salary_to
-            ? `<span class="salary">${v.salary_to.toLocaleString('ru')}</span>`
+        const salTo = v.salary_to_byn
+            ? `<span class="salary">${v.salary_to_byn.toLocaleString('ru')} BYN</span>`
             : `<span class="salary-none">—</span>`
         tbody.innerHTML += `
             <tr>
@@ -49,7 +71,7 @@ async function loadVacancies(filters = {}) {
             </tr>`
     }
 
-    buildSalaryChart(data)
+    isLoading = false
 }
 
 function getBadge(schedule) {
@@ -133,21 +155,15 @@ function renderSkillsChart(n) {
     })
 }
 
-function buildSalaryChart(vacancies) {
-    const buckets = { '0–50k': 0, '50–100k': 0, '100–200k': 0, '200–350k': 0, '350k+': 0 }
+async function buildSalaryChart(filters = {}) {
+    const params = new URLSearchParams(
+        Object.entries(filters).filter(([, v]) => v)
+    )
+    const res = await fetch(`/stats/salary-distribution?${params}`)
+    const data = await res.json()
 
-    for (const v of vacancies) {
-        const s = v.salary_from
-        if (!s) continue
-        if (s < 50000) buckets['0–50k']++
-        else if (s < 100000) buckets['50–100k']++
-        else if (s < 200000) buckets['100–200k']++
-        else if (s < 350000) buckets['200–350k']++
-        else buckets['350k+']++
-    }
-
-    const labels = Object.keys(buckets)
-    const counts = Object.values(buckets)
+    const labels = Object.keys(data.distribution)
+    const counts = Object.values(data.distribution)
 
     if (salaryChart) salaryChart.destroy()
 
@@ -210,9 +226,10 @@ function getFilters() {
 
 function applyFilters() {
     const filters = getFilters()
-    loadVacancies(filters)
+    loadVacancies(filters, true)
     loadStats(filters)
     loadSkillsChart(currentN, filters)
+    buildSalaryChart(filters)
 }
 
 function resetFilters() {
@@ -220,9 +237,10 @@ function resetFilters() {
     document.getElementById('salaryInput').value      = ''
     document.getElementById('scheduleSelect').value   = ''
     document.getElementById('employmentSelect').value = ''
-    loadVacancies()
+    loadVacancies({}, true)
     loadStats()
     loadSkillsChart(currentN)
+    buildSalaryChart()
 }
 
 async function runParse() {
@@ -235,7 +253,7 @@ async function runParse() {
     await fetch('/parse?query=Python&city_id=1002', { method: 'POST' })
 
     setTimeout(async () => {
-        await Promise.all([loadStats(), loadVacancies(), loadSkillsChart(currentN)])
+        await Promise.all([loadStats(), loadVacancies({}, true), loadSkillsChart(currentN)])
         btn.disabled = false
         svg.classList.remove('spinning')
         btn.childNodes[1].textContent = ' Обновить данные'
@@ -264,9 +282,9 @@ function createWebSocket() {
         const data = JSON.parse(event.data)
         if (data.type === 'new_vacancies') {
             showToast(`Добавлено вакансий: ${data.count}`)
-            loadVacancies(getFilters())
-            loadStats(getFilters())
-            loadSkillsChart(currentN, getFilters())
+            loadVacancies(currentFilters, true)
+            loadStats(currentFilters)
+            loadSkillsChart(currentN, currentFilters)
         }
     }
 
@@ -276,6 +294,13 @@ function createWebSocket() {
         setTimeout(createWebSocket, 3000)
     }
 }
+
+window.addEventListener('scroll', () => {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement
+    if (scrollHeight - scrollTop - clientHeight < 200) {
+        loadVacancies({}, false)
+    }
+})
 
 document.getElementById('parse-btn').addEventListener('click', runParse)
 
@@ -294,5 +319,6 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 createWebSocket()
 loadStats()
-loadVacancies()
+loadVacancies({}, true)
 loadSkillsChart()
+buildSalaryChart()
