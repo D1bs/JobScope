@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.tasks import parse_vacancies_task
+from src.tasks import parse_vacancies_task, parse_all_task
 from celery.result import AsyncResult
 from src.celery_app import celery_app
 
@@ -20,3 +20,9 @@ def get_task_status(task_id: str):
         "status": task.status,
         "result": task.result if task.ready() else None
     }
+
+
+@router.post("/all")
+def parse_all():
+    task = parse_all_task.delay()
+    return {"task_id": task.id, "status": "started"}

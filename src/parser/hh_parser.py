@@ -13,31 +13,34 @@ def get_hh_headers() -> dict:
     }
 
 
-def fetch_vacancies(query: str, city_id: int):
+def fetch_vacancies(query: str, city_id: int) -> list:
     url = "https://api.hh.ru/vacancies"
+    all_vacancies = []
 
-    it_roles = ["96", "156", "104", "107", "112", "113", "148", "114", "116", "121", "124", "125", "126"]
+    for page in range(10):  # 10 страниц × 20 вакансий = 200 на запрос
+        params = {
+            "text": query,
+            "per_page": 20,
+            "page": page,
+            "search_field": "name",
+        }
+        if city_id and city_id != 0:
+            params["area"] = city_id
 
-    params = [
-        ("text", query),
-        ("per_page", 20),
-        ("search_field", "name"),
-    ]
+        response = httpx.get(url, params=params, headers=get_hh_headers(), timeout=10.0)
+        data = response.json()
 
-    if city_id and city_id != 0:
-        params.append(("area", city_id))
+        if "items" not in data:
+            print(f"[HH ERROR] {data}")
+            break
 
-    for role_id in it_roles:
-        params.append(("professional_role", role_id))
+        items = data["items"]
+        all_vacancies.extend(items)
 
-    response = httpx.get(url, params=params, headers=get_hh_headers(), timeout=10.0)
-    data = response.json()
+        if page >= data.get("pages", 1) - 1:
+            break
 
-    if "items" not in data:
-        print(f"[HH ERROR] {data}")
-        return []
-
-    return data["items"]
+    return all_vacancies
 
 
 def save_vacancies(vacancies: list):

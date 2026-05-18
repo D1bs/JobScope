@@ -250,7 +250,7 @@ async function runParse() {
     svg.classList.add('spinning')
     btn.childNodes[1].textContent = ' Обновление...'
 
-    await fetch('/parse?query=Python&city_id=1002', { method: 'POST' })
+    await fetch('/parse/all', { method: 'POST' })
 
     setTimeout(async () => {
         await Promise.all([loadStats(), loadVacancies({}, true), loadSkillsChart(currentN)])
