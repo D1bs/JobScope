@@ -8,8 +8,6 @@ class Settings(BaseSettings):
     DB_NAME: str
     DB_USER: str
     DB_PASSWORD: str
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
     REDIS_URL: str
     HH_CLIENT_ID: str = ""
     HH_CLIENT_SECRET: str = ""
