@@ -19,6 +19,16 @@ async function loadStats(filters = {}) {
         : '—'
 }
 
+const savedTaskId = localStorage.getItem('parse_task_id')
+if (savedTaskId) {
+    const btn = document.getElementById('parse-btn')
+    const svg = btn.querySelector('svg')
+    btn.disabled = true
+    svg.classList.add('spinning')
+    btn.childNodes[1].textContent = ' Обновление...'
+    pollParseStatus(savedTaskId)
+}
+
 async function loadVacancies(filters = {}, reset = true) {
     if (isLoading) return
     if (!reset && !hasMore) return
@@ -250,15 +260,40 @@ async function runParse() {
     svg.classList.add('spinning')
     btn.childNodes[1].textContent = ' Обновление...'
 
-    await fetch('/parse/all', { method: 'POST' })
+    const res = await fetch('/parse/all', { method: 'POST' })
+    const { task_id } = await res.json()
 
-    setTimeout(async () => {
-        await Promise.all([loadStats(), loadVacancies({}, true), loadSkillsChart(currentN)])
-        btn.disabled = false
-        svg.classList.remove('spinning')
-        btn.childNodes[1].textContent = ' Обновить данные'
-        showToast('Данные обновлены')
-    }, 5000)
+    localStorage.setItem('parse_task_id', task_id)
+    pollParseStatus(task_id)
+}
+
+function pollParseStatus(taskId) {
+    const interval = setInterval(async () => {
+        const res = await fetch(`/parse/status/${taskId}`)
+        const data = await res.json()
+
+        if (data.status === 'SUCCESS' || data.status === 'FAILURE') {
+            clearInterval(interval)
+            localStorage.removeItem('parse_task_id')
+
+            const btn = document.getElementById('parse-btn')
+            const svg = btn.querySelector('svg')
+            btn.disabled = false
+            svg.classList.remove('spinning')
+            btn.childNodes[1].textContent = ' Обновить данные'
+
+            if (data.status === 'SUCCESS') {
+                await Promise.all([
+                    loadStats(currentFilters),
+                    loadVacancies(currentFilters, true),
+                    loadSkillsChart(currentN, currentFilters),
+                    buildSalaryChart(currentFilters),
+                ])
+            } else {
+                showToast('Ошибка парсинга')
+            }
+        }
+    }, 2000)
 }
 
 function showToast(msg) {
@@ -267,32 +302,6 @@ function showToast(msg) {
     toast.style.display = 'block'
     clearTimeout(toast._t)
     toast._t = setTimeout(() => { toast.style.display = 'none' }, 3500)
-}
-
-function createWebSocket() {
-    const host = window.location.host
-    const ws = new WebSocket(`ws://${host}/ws`)
-
-    ws.onopen = () => {
-        document.getElementById('status-dot').className = 'status-dot connected'
-        document.getElementById('status-text').textContent = 'Подключено'
-    }
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        if (data.type === 'new_vacancies') {
-            showToast(`Добавлено вакансий: ${data.count}`)
-            loadVacancies(currentFilters, true)
-            loadStats(currentFilters)
-            loadSkillsChart(currentN, currentFilters)
-        }
-    }
-
-    ws.onclose = () => {
-        document.getElementById('status-dot').className = 'status-dot'
-        document.getElementById('status-text').textContent = 'Переподключение...'
-        setTimeout(createWebSocket, 3000)
-    }
 }
 
 window.addEventListener('scroll', () => {
@@ -317,7 +326,6 @@ document.querySelectorAll('.tab').forEach(tab => {
     })
 })
 
-createWebSocket()
 loadStats()
 loadVacancies({}, true)
 loadSkillsChart()

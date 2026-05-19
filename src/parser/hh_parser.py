@@ -152,3 +152,23 @@ def save_skills(skills_data: list):
 def fetch_and_save_skills(hh_ids: list):
     details = asyncio.run(fetch_all_details(hh_ids))
     save_skills(details)
+
+
+def remove_outdated_vacancies(actual_hh_ids: set) -> int:
+    if not actual_hh_ids:
+        return 0
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    placeholders = ",".join(["%s"] * len(actual_hh_ids))
+    cursor.execute(f"""
+        DELETE FROM vacancies
+        WHERE hh_id NOT IN ({placeholders})
+    """, list(actual_hh_ids))
+
+    removed = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return removed
