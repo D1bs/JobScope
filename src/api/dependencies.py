@@ -1,9 +1,12 @@
-from typing import Generator
-from src.database import get_connection
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.database import get_session
+from src.repositories.vacancy_repository import VacancyRepository
+from fastapi import Depends
 
-def get_db() -> Generator:
-    conn = get_connection()
-    try:
-        yield conn
-    finally:
-        conn.close()
+
+async def get_db(session: AsyncSession = Depends(get_session)) -> AsyncSession:
+    yield session
+
+
+async def get_vacancy_repo(session: AsyncSession = Depends(get_session)) -> VacancyRepository:
+    return VacancyRepository(session)

@@ -1,9 +1,13 @@
-import httpx
 import asyncio
+import httpx
 
-from src.database import get_connection
+from sqlalchemy import delete, update
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+
 from src.config import settings
 from src.currency import convert_to_byn
+from src.models.vacancy import Vacancy, VacancySkill
 
 
 def get_hh_headers() -> dict:
@@ -13,11 +17,20 @@ def get_hh_headers() -> dict:
     }
 
 
+def _make_session_factory():
+    DATABASE_URL = (
+        f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
+        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    )
+    engine = create_async_engine(DATABASE_URL, echo=False)
+    return async_sessionmaker(engine, expire_on_commit=False), engine
+
+
 def fetch_vacancies(query: str, city_id: int) -> list:
     url = "https://api.hh.ru/vacancies"
     all_vacancies = []
 
-    for page in range(10):  # 10 страниц × 20 вакансий = 200 на запрос
+    for page in range(10):
         params = {
             "text": query,
             "per_page": 20,
@@ -34,8 +47,7 @@ def fetch_vacancies(query: str, city_id: int) -> list:
             print(f"[HH ERROR] {data}")
             break
 
-        items = data["items"]
-        all_vacancies.extend(items)
+        all_vacancies.extend(data["items"])
 
         if page >= data.get("pages", 1) - 1:
             break
@@ -43,132 +55,111 @@ def fetch_vacancies(query: str, city_id: int) -> list:
     return all_vacancies
 
 
-def save_vacancies(vacancies: list):
-    conn = get_connection()
-    cursor = conn.cursor()
+async def save_vacancies_async(vacancies: list) -> int:
+    factory, engine = _make_session_factory()
     saved = 0
+    try:
+        async with factory() as session:
+            for vacancy in vacancies:
+                salary        = vacancy.get("salary") or {}
+                salary_from   = salary.get("from")
+                salary_to     = salary.get("to")
+                currency      = salary.get("currency")
+                contract_type = vacancy.get("type", {}).get("name")
 
-    for vacancy in vacancies:
-        salary        = vacancy.get("salary") or {}
-        salary_from   = salary.get("from")
-        salary_to     = salary.get("to")
-        currency      = salary.get("currency")
-        contract_type = vacancy.get("type", {}).get("name")
+                stmt = insert(Vacancy).values(
+                    hh_id=vacancy["id"],
+                    title=vacancy["name"],
+                    company=vacancy["employer"]["name"],
+                    city=vacancy["area"]["name"],
+                    salary_from=salary_from,
+                    salary_to=salary_to,
+                    currency=currency,
+                    salary_from_byn=convert_to_byn(salary_from, currency),
+                    salary_to_byn=convert_to_byn(salary_to, currency),
+                    url=vacancy["alternate_url"],
+                    contract_type=contract_type,
+                ).on_conflict_do_nothing(index_elements=["hh_id"])
 
-        salary_from_byn = convert_to_byn(salary_from, currency)
-        salary_to_byn   = convert_to_byn(salary_to, currency)
+                result = await session.execute(stmt)
+                if result.rowcount == 1:
+                    saved += 1
 
-        cursor.execute("""
-            INSERT INTO vacancies
-                (hh_id, title, company, city, salary_from, salary_to, currency,
-                 salary_from_byn, salary_to_byn, url, contract_type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (hh_id) DO NOTHING
-        """, (
-            vacancy["id"],
-            vacancy["name"],
-            vacancy["employer"]["name"],
-            vacancy["area"]["name"],
-            salary_from,
-            salary_to,
-            currency,
-            salary_from_byn,
-            salary_to_byn,
-            vacancy["alternate_url"],
-            contract_type,
-        ))
-
-        if cursor.rowcount == 1:
-            saved += 1
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+            await session.commit()
+    finally:
+        await engine.dispose()
     return saved
 
 
-async def fetch_vacancy_details(client, hh_id: str) -> dict:
+def save_vacancies(vacancies: list) -> int:
+    return asyncio.run(save_vacancies_async(vacancies))
+
+
+async def fetch_vacancy_details(client: httpx.AsyncClient, hh_id: str) -> dict:
     try:
         response = await client.get(
             f"https://api.hh.ru/vacancies/{hh_id}",
             headers={"Authorization": f"Bearer {settings.HH_ACCESS_TOKEN}"},
-            timeout=10.0
+            timeout=10.0,
         )
         data = response.json()
-
         skills = [s["name"] for s in data.get("key_skills", [])]
-
         work_formats = data.get("work_format") or []
         schedule = ", ".join(f["name"] for f in work_formats) if work_formats else None
-
-        employment_form = data.get("employment_form") or {}
-        employment = employment_form.get("name")
-
-        return {
-            "hh_id": hh_id,
-            "skills": skills,
-            "employment": employment,
-            "schedule": schedule,
-        }
+        employment = (data.get("employment_form") or {}).get("name")
+        return {"hh_id": hh_id, "skills": skills, "employment": employment, "schedule": schedule}
     except Exception:
         return {"hh_id": hh_id, "skills": [], "employment": None, "schedule": None}
 
 
-async def fetch_all_details(hh_ids: list) -> list:
-    results = []
-    async with httpx.AsyncClient() as client:
-        for hh_id in hh_ids:
-            result = await fetch_vacancy_details(client, hh_id)
-            results.append(result)
-            await asyncio.sleep(0.2)
-    return results
+async def fetch_and_save_skills_async(hh_ids: list) -> None:
+    factory, engine = _make_session_factory()
+    try:
+        async with httpx.AsyncClient() as client:
+            async with factory() as session:
+                for hh_id in hh_ids:
+                    detail = await fetch_vacancy_details(client, hh_id)
+
+                    if detail["employment"] or detail["schedule"]:
+                        await session.execute(
+                            update(Vacancy)
+                            .where(Vacancy.hh_id == hh_id)
+                            .values(employment=detail["employment"], schedule=detail["schedule"])
+                        )
+
+                    for skill in detail["skills"]:
+                        stmt = insert(VacancySkill).values(
+                            vacancy_hh_id=hh_id,
+                            skill_name=skill,
+                        ).on_conflict_do_nothing()
+                        await session.execute(stmt)
+
+                    await asyncio.sleep(0.2)
+
+                await session.commit()
+    finally:
+        await engine.dispose()
 
 
-def save_skills(skills_data: list):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    for item in skills_data:
-        # обновляем employment и schedule
-        if item.get("employment") or item.get("schedule"):
-            cursor.execute("""
-                UPDATE vacancies
-                SET employment = %s, schedule = %s
-                WHERE hh_id = %s
-            """, (item["employment"], item["schedule"], item["hh_id"]))
-
-        for skill in item["skills"]:
-            cursor.execute("""
-                INSERT INTO vacancy_skills (vacancy_hh_id, skill_name)
-                VALUES (%s, %s)
-                ON CONFLICT (vacancy_hh_id, skill_name) DO NOTHING
-            """, (item["hh_id"], skill))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+def fetch_and_save_skills(hh_ids: list) -> None:
+    asyncio.run(fetch_and_save_skills_async(hh_ids))
 
 
-def fetch_and_save_skills(hh_ids: list):
-    details = asyncio.run(fetch_all_details(hh_ids))
-    save_skills(details)
-
-
-def remove_outdated_vacancies(actual_hh_ids: set) -> int:
+async def remove_outdated_vacancies_async(actual_hh_ids: set) -> int:
     if not actual_hh_ids:
         return 0
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    factory, engine = _make_session_factory()
+    try:
+        async with factory() as session:
+            result = await session.execute(
+                delete(Vacancy).where(Vacancy.hh_id.not_in(actual_hh_ids))
+            )
+            await session.commit()
+            return result.rowcount
+    finally:
+        await engine.dispose()
 
-    placeholders = ",".join(["%s"] * len(actual_hh_ids))
-    cursor.execute(f"""
-        DELETE FROM vacancies
-        WHERE hh_id NOT IN ({placeholders})
-    """, list(actual_hh_ids))
 
-    removed = cursor.rowcount
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return removed
+def remove_outdated_vacancies(actual_hh_ids: set) -> int:
+    return asyncio.run(remove_outdated_vacancies_async(actual_hh_ids))

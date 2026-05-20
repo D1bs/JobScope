@@ -1,23 +1,16 @@
 from fastapi import APIRouter, Depends
 
-from src.api.dependencies import get_db
+from src.api.dependencies import get_vacancy_repo
+from src.repositories.vacancy_repository import VacancyRepository
+from src.schemas.vacancies import VacancyFilter
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
 
 @router.get("")
-def get_skills(conn = Depends(get_db)):
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT skill_name, COUNT(*) as count
-        FROM vacancy_skills
-        GROUP BY skill_name
-        ORDER BY count DESC
-        LIMIT 15
-    """)
-
-    rows = cursor.fetchall()
-    cursor.close()
-
-    return {"skills": [{"name": row[0], "count": int(row[1])} for row in rows]}
+async def get_skills(
+    repo: VacancyRepository = Depends(get_vacancy_repo),
+    filters: VacancyFilter = Depends(),
+):
+    skills = await repo.get_top_skills(filters)
+    return {"skills": skills}
