@@ -16,7 +16,11 @@ venv/
 
 # Secrets
 .env
+.env-test
 
 # Celery
 celerybeat-schedule*
 celerybeat.pid
+
+# Redis
+dump.rdb

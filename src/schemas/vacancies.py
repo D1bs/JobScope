@@ -1,12 +1,12 @@
-from fastapi import Query
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 
 
 @dataclass
 class VacancyFilter:
-    search: str = Query(None)
-    city: str = Query(None)
-    schedule: str = Query(None)
-    employment: str = Query(None)
-    salary_min: int = Query(None, ge=0)
-    offset: int = Query(0, ge=0)
+    search: Optional[str] = None
+    city: Optional[str] = None
+    schedule: Optional[str] = None
+    employment: Optional[str] = None
+    salary_min: Optional[int] = None
+    offset: int = 0

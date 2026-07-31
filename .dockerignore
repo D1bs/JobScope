@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .env
+.env-test
 .git/
 .idea/
 celerybeat-schedule
